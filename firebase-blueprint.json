@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique ID of the user." },
+        "phoneNumber": { "type": "string", "description": "The phone number of the user." },
+        "displayName": { "type": "string", "description": "The name of the user." },
+        "photoURL": { "type": "string", "description": "The URL of the user's profile picture." },
+        "status": { "type": "string", "description": "The current status of the user." },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "The last time the user was active." }
+      },
+      "required": ["uid", "phoneNumber"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A conversation between two or more users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the chat." },
+        "participants": { "type": "array", "items": { "type": "string" }, "description": "The UIDs of the users in the chat." },
+        "lastMessage": {
+          "type": "object",
+          "properties": {
+            "text": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "senderId": { "type": "string" }
+          }
+        },
+        "type": { "type": "string", "enum": ["direct", "group"] }
+      },
+      "required": ["id", "participants", "type"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message sent in a chat.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the message." },
+        "chatId": { "type": "string", "description": "The ID of the chat the message belongs to." },
+        "senderId": { "type": "string", "description": "The UID of the user who sent the message." },
+        "text": { "type": "string", "description": "The content of the message." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "The time the message was sent." },
+        "type": { "type": "string", "enum": ["text", "image"] }
+      },
+      "required": ["id", "chatId", "senderId", "text", "timestamp", "type"]
+    },
+    "Call": {
+      "title": "Call",
+      "description": "A voice or video call signaling session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "callerId": { "type": "string" },
+        "calleeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["voice", "video"] },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "missed"] },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "callerId", "calleeId", "type", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Chat metadata."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a chat."
+    },
+    "/calls/{callId}": {
+      "schema": "Call",
+      "description": "Call signaling data."
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "ChatWave",
+  "description": "A real-time mobile chatting application with phone number login, inspired by WhatsApp.",
+  "requestFramePermissions": ["camera", "microphone"]
+}

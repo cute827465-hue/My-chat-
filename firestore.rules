@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - uid: string (required)
+    //   - phoneNumber: string (required)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - status: string (optional)
+    //   - lastSeen: timestamp (optional)
+    //
+    // Collection: chats
+    // Document ID: chatId
+    // Fields:
+    //   - id: string (required)
+    //   - participants: list (required)
+    //   - lastMessage: map (optional)
+    //   - type: string (required, enum: ['direct', 'group'])
+    //
+    // Collection: chats/{chatId}/messages
+    // Document ID: messageId
+    // Fields:
+    //   - id: string (required)
+    //   - chatId: string (required)
+    //   - senderId: string (required)
+    //   - text: string (required)
+    //   - timestamp: timestamp (required)
+    //   - type: string (required, enum: ['text', 'image'])
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isChatParticipant(chatId) {
+      return isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'phoneNumber']) &&
+             data.uid is string &&
+             data.phoneNumber is string &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 500)) &&
+             (!('status' in data) || (data.status is string && data.status.size() < 200));
+    }
+
+    function isValidChat(data) {
+      return data.keys().hasAll(['id', 'participants', 'type']) &&
+             data.id is string &&
+             data.participants is list &&
+             data.participants.size() >= 1 &&
+             data.participants.size() <= 100 &&
+             data.type in ['direct', 'group'];
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'chatId', 'senderId', 'text', 'timestamp', 'type']) &&
+             data.id is string &&
+             data.chatId is string &&
+             data.senderId is string &&
+             data.text is string &&
+             data.text.size() <= 5000 &&
+             data.type in ['text', 'image'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if isOwner(uid) && isValidUser(request.resource.data);
+    }
+
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated() && isValidChat(request.resource.data) && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants && isValidChat(request.resource.data);
+      
+      match /messages/{messageId} {
+        allow read: if isChatParticipant(chatId);
+        allow create: if isChatParticipant(chatId) && isValidMessage(request.resource.data) && request.resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    match /calls/{callId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.callerId || request.auth.uid == resource.data.calleeId);
+      allow create: if isAuthenticated() && (request.auth.uid == request.resource.data.callerId);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.callerId || request.auth.uid == resource.data.calleeId);
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.callerId || request.auth.uid == resource.data.calleeId);
+
+      match /callerCandidates/{candidateId} {
+        allow read, write: if isAuthenticated();
+      }
+      match /calleeCandidates/{candidateId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+  }
+}
